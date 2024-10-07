@@ -1,5 +1,6 @@
 import chess
 import math
+import time
 
 class ChessBot:
     def __init__(self, depth=3):
@@ -27,7 +28,18 @@ class ChessBot:
         for piece in chess.PIECE_TYPES:
             eval += len(board.pieces(piece, chess.WHITE)) * piece_values[piece]
             eval -= len(board.pieces(piece, chess.BLACK)) * piece_values[piece]
-        
+
+        # Оценка уязвимости фигур (потеря темпа)
+        for square in chess.SQUARES:
+            piece = board.piece_at(square)
+            if piece:
+                if piece.color == chess.WHITE:
+                    if square in board.attacks(square):  # Если фигура под угрозой
+                        eval -= 10  # Штраф за уязвимость
+                else:
+                    if square in board.attacks(square):
+                        eval += 10  # Увеличение оценки, если фигура противника уязвима
+
         # Пешечная структура
         eval += 10 * len([square for square in board.pieces(chess.PAWN, chess.WHITE) if chess.square_rank(square) >= 4])
         eval -= 10 * len([square for square in board.pieces(chess.PAWN, chess.BLACK) if chess.square_rank(square) <= 3])
@@ -41,7 +53,7 @@ class ChessBot:
                     eval += 20
                 else:
                     eval -= 20
-        
+
         # Оценка активности фигур
         for square in chess.SQUARES:
             piece = board.piece_at(square)
@@ -60,9 +72,9 @@ class ChessBot:
         return eval
 
     def evaluate_move(self, board, move):
-        board.push(move)  # Применяем ход
+        board.push(move)                    # Применяем ход
         score = self.evaluate_board(board)  # Оцениваем новую позицию
-        board.pop()  # Возвращаемся к исходной позиции
+        board.pop()                         # Возвращаемся к исходной позиции
         return score
 
     def minimax(self, board, depth, alpha, beta, maximizing_player):
@@ -121,19 +133,16 @@ class ChessBot:
             self.transposition_table[board_fen] = {'eval': min_eval, 'depth': depth}  # Убираем 'move'
             return min_eval, best_move
 
-    def find_best_move(self, board):
-        """Поиск лучшего хода для текущего игрока с итеративным углублением."""
-        for depth in range(1, self.depth + 1):
-            self.position_history.add(board.fen())
-            _, best_move = self.minimax(board, depth, -math.inf, math.inf, board.turn)
-        return best_move
+    def find_best_move(self, board, max_time=5):
+    
+        start_time = time.time()
+        best_move = None
 
-    def check_checkmate_threat(self, board):
-        """Проверка, угрожает ли противник матом в следующем ходе."""
-        for move in board.legal_moves:
-            board.push(move)
-            if board.is_checkmate():
-                board.pop()
-                return True  # Угроза мата
-            board.pop()
-        return False  # Нет угрозы мата
+        for depth in range(1, self.depth + 1):
+            if time.time() - start_time > max_time:
+                break  # Прерываем, если время вышло
+            _, move = self.minimax(board, depth, -math.inf, math.inf, board.turn)
+            if move:
+                best_move = move
+
+        return best_move
